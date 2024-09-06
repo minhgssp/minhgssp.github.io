@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Countries' Independence Data</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f0f0; }
+        .container { max-width: 1200px; margin: 0 auto; background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .filters { margin-bottom: 20px; }
+        .filters input, .filters select { padding: 8px; margin-right: 10px; }
+        .chart-container { display: flex; flex-wrap: wrap; justify-content: space-between; margin-top: 30px; }
+        .chart { width: 48%; margin-bottom: 20px; background-color: white; padding: 15px; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Countries' Independence Data</h1>
+        
+        <div class="filters">
+            <input type="number" id="yearFilter" placeholder="Filter by Year">
+            <select id="countryFilter">
+                <option value="">Filter by Colonizing Country</option>
+            </select>
+            <button onclick="applyFilters()">Apply Filters</button>
+            <button onclick="resetFilters()">Reset Filters</button>
+        </div>
+
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th>Year</th>
+                    <th>Country</th>
+                    <th>Independence From</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <div class="chart-container">
+            <div class="chart">
+                <canvas id="yearlyChart"></canvas>
+            </div>
+            <div class="chart">
+                <canvas id="decadeChart"></canvas>
+            </div>
+            <div class="chart">
+                <canvas id="colonizersChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let independenceData = [];
+
+        // Function to parse CSV data
+        function parseCSV(csv) {
+            return Papa.parse(csv, { header: true }).data;
+        }
+
+        // Function to populate the table
+        function populateTable(data) {
+            const tableBody = document.querySelector('#dataTable tbody');
+            tableBody.innerHTML = '';
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row.Year}</td>
+                    <td>${row.Country}</td>
+                    <td>${row['Independence From']}</td>
+                    <td>${row.Notes}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        // Function to apply filters
+        function applyFilters() {
+            const yearFilter = document.getElementById('yearFilter').value;
+            const countryFilter = document.getElementById('countryFilter').value;
+            
+            const filteredData = independenceData.filter(row => {
+                return (!yearFilter || row.Year === yearFilter) &&
+                       (!countryFilter || row['Independence From'].includes(countryFilter));
+            });
+            
+            populateTable(filteredData);
+        }
+
+        // Function to reset filters
+        function resetFilters() {
+            document.getElementById('yearFilter').value = '';
+            document.getElementById('countryFilter').value = '';
+            populateTable(independenceData);
+        }
+
+        // Function to populate the country filter dropdown
+        function populateCountryFilter() {
+            const countryFilter = document.getElementById('countryFilter');
+            const countries = [...new Set(independenceData.map(row => row['Independence From']))];
+            countries.forEach(country => {
+                const option = document.createElement('option');
+                option.value = country;
+                option.textContent = country;
+                countryFilter.appendChild(option);
+            });
+        }
+
+        // Function to create charts
+        function createCharts() {
+            // Yearly independence chart
+            const yearlyData = independenceData.reduce((acc, row) => {
+                acc[row.Year] = (acc[row.Year] || 0) + 1;
+                return acc;
+            }, {});
+
+            new Chart(document.getElementById('yearlyChart'), {
+                type: 'line',
+                data: {
+                    labels: Object.keys(yearlyData),
+                    datasets: [{
+                        label: 'Countries Gaining Independence',
+                        data: Object.values(yearlyData),
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Countries Gaining Independence by Year'
+                        }
+                    }
+                }
+            });
+
+            // Decade independence chart
+            const decadeData = independenceData.reduce((acc, row) => {
+                const decade = Math.floor(row.Year / 10) * 10;
+                acc[decade] = (acc[decade] || 0) + 1;
+                return acc;
+            }, {});
+
+            new Chart(document.getElementById('decadeChart'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(decadeData),
+                    datasets: [{
+                        label: 'Countries Gaining Independence',
+                        data: Object.values(decadeData),
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Countries Gaining Independence by Decade'
+                        }
+                    }
+                }
+            });
+
+            // Colonizers chart
+            const colonizerData = independenceData.reduce((acc, row) => {
+                acc[row['Independence From']] = (acc[row['Independence From']] || 0) + 1;
+                return acc;
+            }, {});
+
+            new Chart(document.getElementById('colonizersChart'), {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(colonizerData),
+                    datasets: [{
+                        data: Object.values(colonizerData),
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.8)',
+                            'rgba(54, 162, 235, 0.8)',
+                            'rgba(255, 206, 86, 0.8)',
+                            'rgba(75, 192, 192, 0.8)',
+                            'rgba(153, 102, 255, 0.8)',
+                            'rgba(255, 159, 64, 0.8)',
+                            'rgba(199, 199, 199, 0.8)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Number of Colonies by Colonizing Country'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            const csvData = `Year,Country,Independence From,Notes
+660 BCE,Japan,-,National Foundation Day
+1291,Switzerland,Holy Roman Empire,Alliance against the Holy Roman Empire
+1640,Portugal,Spanish Empire,Restoration of Independence Day
+1776,United States,Kingdom of Great Britain,United States Declaration of Independence
+1804,Serbia,Ottoman Empire,First Serbian Uprising
+1810,Argentina,Spanish Empire,Argentine Declaration of Independence
+1811,Venezuela,Spanish Empire,Venezuelan Declaration of Independence
+1816,Argentina,Spanish Empire,Argentine Declaration of Independence
+1818,Chile,Spanish Empire,Establishment of the Government Junta of Chile
+1821,Costa Rica,Spanish Empire,Act of Independence of Central America
+1821,Dominican Republic,Spanish Empire,Independence from Spain
+1821,El Salvador,Spanish Empire,Act of Independence of Central America
+1821,Guatemala,Spanish Empire,Act of Independence of Central America
+1821,Honduras,Spanish Empire,Act of Independence of Central America
+1821,Mexico,Spanish Empire,Start of the Mexican War of Independence
+1821,Nicaragua,Spanish Empire,Act of Independence of Central America
+1821,Panama,Spanish Empire,Independence Act of Panama
+1822,Brazil,Portugal,Declaration of independence by Pedro I of Brazil
+1825,Bolivia,Spain,Bolivian Declaration of Independence
+1825,Uruguay,Empire of Brazil,Declaration of independence and union with the United Provinces of the Río de la Plata
+1830,Belgium,Netherlands,Ascension of Leopold of Saxe-Coburg-Saalfeld to the throne
+1831,Greece,Ottoman Empire,Start of the Greek War of Independence
+1844,Dominican Republic,Republic of Haiti,Independence re-declared from Haiti
+1847,Liberia,American Colonization Society,Liberian Declaration of Independence
+1867,Canada,United Kingdom of Great Britain and Ireland,Establishment of the Dominion of Canada
+1878,Montenegro,Ottoman Empire,-
+1878,Romania,Ottoman Empire,Romania's declaration of independence
+1878,Serbia,Ottoman Empire,Treaty of Berlin
+1898,Philippines,Spanish Empire,Philippine Declaration of Independence
+1903,Panama,Colombia,Separation from Colombia
+1905,Norway,Sweden,Union Dissolution and Independence Day
+1908,Bulgaria,Ottoman Empire,Bulgarian Declaration of Independence
+1911,Mongolia,Qing dynasty,Independence declared during the Xinhai Revolution
+1912,Albania,Ottoman Empire,Albanian Declaration of Independence
+1917,Finland,Russian Soviet Federative Socialist Republic,Finnish Declaration of Independence
+1918,Armenia,Transcaucasian Democratic Federative Republic,Declaration of Independence of Armenia
+1918,Azerbaijan,Russian Soviet Federative Socialist Republic,Declaration of Independence of Azerbaijan
+1918,Czechoslovakia,Austria-Hungary,Independence declaration by the Czechoslovak National Council
+1918,Estonia,Russian Soviet Federative Socialist Republic,Estonian Declaration of Independence
+1918,Georgia,Russian Soviet Federative Socialist Republic,Day of the proclamation of the Democratic Republic of Georgia
+1918,Latvia,Russian Soviet Federative Socialist Republic/German Empire,Proclamation of independence
+1918,Lithuania,Russian Soviet Federative Socialist Republic/German Empire,Act of Independence of Lithuania
+1918,Poland,Russian Republic/Austria-Hungary/German Empire,Restoration of Poland's independence
+1919,Afghanistan,United Kingdom of Great Britain and Ireland,Anglo-Afghan Treaty of 1919
+1919,Ukraine,Russian Soviet Federative Socialist Republic/Austria-Hungary,Unification of Ukraine
+1921,Mongolia,Republic of China,Re-assertion of independence
+1922,Egypt,United Kingdom,-
+1922,Ireland,United Kingdom,Anglo-Irish Treaty
+1923,Turkey,-,Proclamation of the Republic of Turkey
+1931,South Africa,United Kingdom,Statute of Westminster 1931
+1932,Iraq,United Kingdom,-
+1943,Lebanon,Vichy France,-
+1944,Iceland,Denmark,Dissolution of the Danish–Icelandic Act of Union
+1945,Austria,Nazi Germany,Declaration of Independence
+1945,Indonesia,Empire of Japan/Netherlands,Proclamation of Indonesian Independence
+1945,Vietnam,Empire of Japan/France,Proclamation of Independence of the Democratic Republic of Vietnam
+1946,Jordan,United Kingdom,Ascension of Abdullah I of Jordan to the throne
+1946,Philippines,United States,Treaty of Manila
+1946,Syria,Provisional Government of the French Republic,End of the French Mandate of Syria
+1947,India,United Kingdom,Indian Independence Act 1947
+1947,Pakistan,United Kingdom,Indian Independence Act 1947
+1948,Burma (Myanmar),United Kingdom,Burmese Declaration of Independence
+1948,Israel,United Kingdom/Mandatory Palestine,Israeli Declaration of Independence
+1948,North Korea,Empire of Japan,Liberation from Japanese rule
+1948,South Korea,Empire of Japan,Liberation from Japanese rule
+1948,Sri Lanka,United Kingdom,-
+1951,Libya,United Kingdom/Italy/France,Independence from Italy UK and France
+1952,Egypt,United Kingdom,Revolution Day
+1953,Cambodia,France,Military hand-over agreement
+1956,Morocco,France/Spain,Return of Mohammed V from exile
+1956,Sudan,United Kingdom/Egypt,-
+1956,Tunisia,France,-
+1957,Ghana,United Kingdom,-
+1957,Malaysia,United Kingdom,Malayan Declaration of Independence
+1958,Guinea,France,-
+1960,Benin,France,Agreement with France
+1960,Burkina Faso,France,Agreement with France
+1960,Cameroon,United Kingdom/France,-
+1960,Central African Republic,France,Agreement with France
+1960,Chad,France,Agreement with France
+1960,Congo Democratic Republic of the,Belgium,Treaty of Friendship Assistance and Co-operation
+1960,Congo Republic of the,France,-
+1960,Cyprus,United Kingdom,London-Zürich Agreements
+1960,Gabon,France,Agreement with France
+1960,Ivory Coast,France,Agreement with France
+1960,Madagascar,France,-
+1960,Mali,France,-
+1960,Mauritania,France,Agreement with France
+1960,Niger,France,Agreement with France
+1960,Nigeria,United Kingdom,-
+1960,Senegal,France,-
+1960,Somalia,United Kingdom,-
+1960,Togo,France,-
+1961,Kuwait,United Kingdom,-
+1961,Sierra Leone,United Kingdom,-
+1961,Tanzania,United Kingdom,Independence as Tanganyika
+1962,Algeria,France,Algerian War and referendum
+1962,Burundi,Belgium,UN General Assembly Resolution 1746
+1962,Jamaica,United Kingdom,Independence of Jamaica
+1962,Rwanda,Belgium,UN General Assembly Resolution 1746
+1962,Trinidad and Tobago,United Kingdom,Trinidad and Tobago Independence Act 1962
+1962,Uganda,United Kingdom,-
+1963,Kenya,United Kingdom,-
+1964,Malawi,United Kingdom,-
+1964,Malta,United Kingdom,-
+1964,Zambia,United Kingdom,Zambia Independence Act 1964
+1965,Gambia The,United Kingdom,Gambia Independence Act 1964
+1965,Maldives,United Kingdom,-
+1965,Singapore,Malaysia,Proclamation of Singapore
+1966,Barbados,United Kingdom,Barbados Independence Act 1966
+1966,Botswana,United Kingdom,Botswana Independence Act 1966
+1966,Guyana,United Kingdom,-
+1966,Lesotho,United Kingdom,-
+1967,Yemen,United Kingdom,Declaration of independence as Kingdom of Yemen
+1968,Equatorial Guinea,Spain,-
+1968,Mauritius,United Kingdom,-
+1968,Nauru,United Kingdom/Australia/New Zealand,End of UN trust territory status
+1968,Swaziland (Eswatini),United Kingdom,-
+1970,Fiji,United Kingdom,Instruments of Independence
+1970,Tonga,United Kingdom,Termination of protectorate status
+1971,Bahrain,United Kingdom,Ascension of Isa bin Salman Al Khalifa to the throne
+1971,United Arab Emirates,United Kingdom,-
+1973,Bahamas,United Kingdom,The Bahamas Independence Order 1973
+1974,Grenada,United Kingdom,-
+1974,Guinea-Bissau,Portugal,-
+1975,Angola,Portugal,Alvor Agreement
+1975,Cape Verde,Portugal,Agreement Between Portugal and PAIGC
+1975,Comoros,France,Unilateral declaration following referendum
+1975,Mozambique,Portugal,-
+1975,Papua New Guinea,Australia,-
+1975,São Tomé and Príncipe,Portugal,Agreement with Portugal
+1975,Suriname,Netherlands,-
+1976,Seychelles,United Kingdom,-
+1977,Djibouti,France,-
+1978,Dominica,United Kingdom,-
+1978,Solomon Islands,United Kingdom,-
+1978,Tuvalu,United Kingdom,-
+1979,Kiribati,United Kingdom,-
+1979,Saint Lucia,United Kingdom,-
+1979,Saint Vincent and the Grenadines,United Kingdom,-
+1980,Zimbabwe,United Kingdom,Granting of independence by the UK
+1981,Antigua and Barbuda,United Kingdom,Antigua Termination of Association Order
+1981,Belize,United Kingdom,Belize Act 1981
+1983,Saint Kitts and Nevis,United Kingdom,-
+1984,Brunei,United Kingdom,Treaty of Friendship and Co-operation
+1986,Micronesia,United States,Compact of Free Association
+1990,Namibia,South Africa,-
+1991,Armenia,Soviet Union,-
+1991,Azerbaijan,Soviet Union,-
+1991,Belarus,Soviet Union,-
+1991,Estonia,Soviet Union,Estonian Restoration of Independence
+1991,Georgia,Soviet Union,-
+1991,Kazakhstan,Soviet Union,-
+1991,Kyrgyzstan,Soviet Union,-
+1991,Latvia,Soviet Union,On the Restoration of Independence of the Republic of Latvia
+1991,Lithuania,Soviet Union,Act of the Re-Establishment of the State of Lithuania
+1991,Macedonia (North Macedonia),Yugoslavia,-
+1991,Moldova,Soviet Union,Moldovan Declaration of Independence
+1991,Slovenia,Yugoslavia,Declaration of independence from Yugoslavia
+1991,Tajikistan,Soviet Union,-
+1991,Turkmenistan,Soviet Union,-
+1991,Ukraine,Soviet Union,Declaration of Independence of Ukraine
+1991,Uzbekistan,Soviet Union,-
+1992,Bosnia and Herzegovina,Yugoslavia,1992 Bosnian independence referendum
+1992,Croatia,Yugoslavia,First session of the Croatian Parliament
+1993,Czech Republic,Czechoslovakia,Peaceful Dissolution of Czechoslovakia
+1993,Eritrea,Ethiopia,Eritrean War of Independence
+1993,Slovakia,Czechoslovakia,Peaceful Dissolution of Czechoslovakia
+1994,Palau,United States,-
+2002,East Timor,Indonesia,-
+2006,Montenegro,Serbia and Montenegro,2006 Montenegrin independence referendum
+2008,Kosovo,Serbia,Declaration of independence from Serbia
+2011,South Sudan,Sudan,-`;
+
+            independenceData = parseCSV(csvData);
+            populateTable(independenceData);
+            populateCountryFilter();
+            createCharts();
+        });
+    </script>
+</body>
+</html>
