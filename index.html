@@ -18,6 +18,21 @@
         .filters input, .filters select { padding: 8px; margin-right: 10px; }
         .chart-container { display: flex; flex-direction: column; align-items: center; margin-top: 30px; }
         .chart { width: 100%; margin-bottom: 40px; background-color: white; padding: 15px; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+        #colonizersTable {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #colonizersTable th, #colonizersTable td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        #colonizersTable th {
+            background-color: #f2f2f2;
+        }
+        #colonizersTable tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
     </style>
 </head>
 <body>
@@ -53,7 +68,16 @@
                 <canvas id="decadeChart"></canvas>
             </div>
             <div class="chart">
-                <canvas id="colonizersChart"></canvas>
+                <h2>Colonies by Colonizing Country</h2>
+                <table id="colonizersTable">
+                    <thead>
+                        <tr>
+                            <th>Country</th>
+                            <th>Number of Colonies</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -172,38 +196,25 @@
                 }
             });
 
-            // Colonizers chart
+                        // Colonizers table
             const colonizerData = independenceData.reduce((acc, row) => {
                 acc[row['Independence From']] = (acc[row['Independence From']] || 0) + 1;
                 return acc;
             }, {});
 
-            new Chart(document.getElementById('colonizersChart'), {
-                type: 'pie',
-                data: {
-                    labels: Object.keys(colonizerData),
-                    datasets: [{
-                        data: Object.values(colonizerData),
-                        backgroundColor: [
-                            'rgba(255, 99, 132, 0.8)',
-                            'rgba(54, 162, 235, 0.8)',
-                            'rgba(255, 206, 86, 0.8)',
-                            'rgba(75, 192, 192, 0.8)',
-                            'rgba(153, 102, 255, 0.8)',
-                            'rgba(255, 159, 64, 0.8)',
-                            'rgba(199, 199, 199, 0.8)'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Number of Colonies by Colonizing Country'
-                        }
-                    }
-                }
+            const sortedColonizerData = Object.entries(colonizerData)
+                .sort((a, b) => b[1] - a[1])
+                .map(([country, count]) => ({ country, count }));
+
+            const colonizersTableBody = document.querySelector('#colonizersTable tbody');
+            colonizersTableBody.innerHTML = '';
+            sortedColonizerData.forEach(({ country, count }) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${country}</td>
+                    <td>${count}</td>
+                `;
+                colonizersTableBody.appendChild(row);
             });
         }
 
